@@ -1,6 +1,29 @@
-@LinkService_HostAddress = http://localhost:5288
+@base = http://localhost:5001
+@key = dev-api-key
 
-GET {{LinkService_HostAddress}}/weatherforecast/
-Accept: application/json
+### Liveness
+GET {{base}}/health/live
 
-###
+### Readiness (checks the database)
+GET {{base}}/health/ready
+
+### Create a link with a generated code
+POST {{base}}/api/links
+X-Api-Key: {{key}}
+Content-Type: application/json
+
+{ "url": "https://example.com/some/long/path" }
+
+### Create a link with a custom code
+POST {{base}}/api/links
+X-Api-Key: {{key}}
+Content-Type: application/json
+
+{ "url": "https://github.com", "customCode": "ghub" }
+
+### Look up a code (no key, used by the redirect service)
+GET {{base}}/api/links/ghub
+
+### List links with an optional search filter
+GET {{base}}/api/links?search=git&take=20
+X-Api-Key: {{key}}

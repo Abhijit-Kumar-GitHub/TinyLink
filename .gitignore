@@ -6,6 +6,11 @@
 # dotenv files
 .env
 
+# Local-only notes and tooling config
+*.local.md
+CLAUDE.md
+.claude/
+
 # User-specific files
 *.rsuser
 *.suo
