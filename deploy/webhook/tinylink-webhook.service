@@ -1,0 +1,32 @@
+[Unit]
+Description=TinyLink deploy-only GitHub webhook listener
+After=network-online.target k3s.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tinylink-webhook
+Group=tinylink-webhook
+EnvironmentFile=/etc/tinylink-webhook.env
+Environment=KUBECONFIG=/opt/tinylink-webhook/kubeconfig
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/tinylink-webhook/webhook_listener.py serve
+Restart=on-failure
+RestartSec=5
+
+# Hardening: unprivileged, read-only system, no privilege escalation.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

@@ -9,6 +9,7 @@ resources:
   - redirect-service.yaml
   - operator-console.yaml
   - ingress.yaml
+  - deployer-rbac.yaml
   - monitoring/prometheus.yaml
   - monitoring/node-exporter.yaml
   - monitoring/grafana.yaml

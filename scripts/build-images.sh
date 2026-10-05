@@ -7,7 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 REGISTRY="${REGISTRY:-farspawn}"
-TAG="$(git rev-parse --short HEAD)"
+# Fixed length: the webhook listener derives the same 7-character tag from GitHub's full SHA.
+TAG="$(git rev-parse --short=7 HEAD)"
 PUSH="${1:-}"
 
 if [[ -n "$(git status --porcelain --untracked-files=no)" && "${ALLOW_DIRTY:-}" != 1 ]]; then
