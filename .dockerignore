@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+.git/
+.claude/
+CLAUDE.md
+*.local.md
+*.docx
+.env
+postman/
+# Local dev credentials must never end up in (public) images; containers get config from env vars.
+**/appsettings.Development.json
+**/*.http

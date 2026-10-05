@@ -61,13 +61,8 @@
           ] } }]
         },
         {
-          "name": "Create link with taken custom code (409)",
+          "name": "Create link reusing the code just created (409)",
           "event": [
-            { "listen": "prerequest", "script": { "exec": [
-              "pm.sendRequest({ url: pm.collectionVariables.get('linkBase') + '/api/links', method: 'POST',",
-              "  header: { 'X-Api-Key': pm.collectionVariables.get('apiKey'), 'Content-Type': 'application/json' },",
-              "  body: { mode: 'raw', raw: JSON.stringify({ url: 'https://example.com', customCode: 'pm-dup' }) } });"
-            ] } },
             { "listen": "test", "script": { "exec": [
               "pm.test('409 Conflict', () => pm.response.to.have.status(409));"
             ] } }
@@ -79,7 +74,7 @@
               { "key": "X-Api-Key", "value": "{{apiKey}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
-            "body": { "mode": "raw", "raw": "{ \"url\": \"https://example.com\", \"customCode\": \"pm-dup\" }" }
+            "body": { "mode": "raw", "raw": "{ \"url\": \"https://example.com\", \"customCode\": \"{{createdCode}}\" }" }
           }
         },
         {

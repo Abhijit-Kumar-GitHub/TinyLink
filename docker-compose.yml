@@ -1,0 +1,103 @@
+# Full local stack: docker compose up --build   (copy .env.example to .env first)
+# Console http://localhost:5004 | Redirect http://localhost:5002 | Link API :5001 | Analytics API :5003
+name: tinylink
+
+x-dotnet-env: &dotnet-env
+  ASPNETCORE_HTTP_PORTS: "8080"
+  ApiKey: ${API_KEY}
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+    volumes:
+      - sql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # One-shot: applies the Database First analytics schema (idempotent), then exits.
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      SA_PASSWORD: ${SA_PASSWORD}
+    volumes:
+      - ./db/analytics:/scripts:ro
+    entrypoint: ["/bin/bash", "-c", "/opt/mssql-tools18/bin/sqlcmd -C -b -S sqlserver -U sa -P \"$$SA_PASSWORD\" -i /scripts/001_schema.sql"]
+    restart: "no"
+
+  link-service:
+    image: ${REGISTRY:-farspawn}/tinylink-link:${TAG:-dev}
+    build:
+      context: .
+      dockerfile: src/LinkService/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__LinkServiceDb: Server=sqlserver,1433;Database=LinkServiceDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+    ports:
+      - "5001:8080"
+    restart: unless-stopped
+
+  analytics-service:
+    image: ${REGISTRY:-farspawn}/tinylink-analytics:${TAG:-dev}
+    build:
+      context: .
+      dockerfile: src/AnalyticsService/Dockerfile
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__AnalyticsServiceDb: Server=sqlserver,1433;Database=AnalyticsServiceDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+    ports:
+      - "5003:8080"
+    restart: unless-stopped
+
+  redirect-service:
+    image: ${REGISTRY:-farspawn}/tinylink-redirect:${TAG:-dev}
+    build:
+      context: .
+      dockerfile: src/RedirectService/Dockerfile
+    depends_on:
+      - link-service
+      - analytics-service
+    environment:
+      ASPNETCORE_HTTP_PORTS: "8080"
+      Services__LinkService: http://link-service:8080/
+      Services__AnalyticsService: http://analytics-service:8080/
+    ports:
+      - "5002:8080"
+    restart: unless-stopped
+
+  operator-console:
+    image: ${REGISTRY:-farspawn}/tinylink-console:${TAG:-dev}
+    build:
+      context: .
+      dockerfile: src/OperatorConsole/Dockerfile
+    depends_on:
+      - link-service
+      - analytics-service
+    environment:
+      <<: *dotnet-env
+      Services__LinkService: http://link-service:8080/
+      Services__AnalyticsService: http://analytics-service:8080/
+      Operator__Username: ${OPERATOR_USERNAME}
+      Operator__PasswordHash: ${OPERATOR_PASSWORD_HASH}
+      Console__ShortUrlBase: http://localhost:5002/
+    ports:
+      - "5004:8080"
+    restart: unless-stopped
+
+volumes:
+  sql-data:
