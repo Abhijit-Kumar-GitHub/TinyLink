@@ -1,0 +1,19 @@
+#!/bin/bash
+# cloud-init on node 1 ("traffic"): k3s server. Logs: /var/log/cloud-init-output.log
+set -euxo pipefail
+
+# 1 GB swap as a safety net: the k3s control plane alone uses ~600 MB of this node's 1 GB.
+# Pods still never swap (kubelet default), only system processes can.
+if [ ! -f /swapfile ]; then
+  fallocate -l 1G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="${k3s_version}" K3S_TOKEN="${k3s_token}" sh -s - server \
+  --node-label tinylink.io/role=traffic \
+  --tls-san "${public_ip}" \
+  --write-kubeconfig-mode 0600 \
+  --kubelet-arg=fail-swap-on=false

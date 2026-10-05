@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+admin_cidr     = "203.0.113.7/32"                # your public IP: curl -s https://checkip.amazonaws.com
+ssh_public_key = "ssh-ed25519 AAAA... tinylink"  # contents of ~/.ssh/tinylink.pub
+
+# NEW password, not the dev one (its hash is public on GitHub):
+#   dotnet run --project src/OperatorConsole -- hash-password '<new password>'
+operator_password_hash = "PBKDF2-SHA256$210000$...$..."
+
+budget_email       = "you@example.com"
+monthly_budget_usd = 10
+# region = "ap-south-1"
