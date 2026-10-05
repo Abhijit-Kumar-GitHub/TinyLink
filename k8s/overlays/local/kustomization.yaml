@@ -35,10 +35,10 @@ patches:
 
 images:
   - name: farspawn/tinylink-link
-    newTag: k3d-local
+    newTag: e9b2d1a
   - name: farspawn/tinylink-analytics
-    newTag: k3d-local
+    newTag: e9b2d1a
   - name: farspawn/tinylink-redirect
-    newTag: k3d-local
+    newTag: e9b2d1a
   - name: farspawn/tinylink-console
-    newTag: k3d-local
+    newTag: e9b2d1a
