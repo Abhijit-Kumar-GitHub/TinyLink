@@ -1,5 +1,7 @@
+using System.Diagnostics.Metrics;
 using System.Net;
 using Microsoft.Extensions.Caching.Memory;
+using TinyLink.ServiceDefaults;
 
 namespace RedirectService;
 
@@ -8,6 +10,9 @@ namespace RedirectService;
 public sealed class LinkLookupClient(HttpClient http, IMemoryCache cache, IConfiguration config, ILogger<LinkLookupClient> logger)
 {
     private sealed record Entry(string? Url, DateTime FreshUntilUtc);
+
+    private static readonly Counter<long> Lookups = TinyLinkMetrics.Meter.CreateCounter<long>(
+        "tinylink.redirect.lookups", description: "Short-code resolutions by outcome: cache_hit, fetched, not_found, stale, error");
 
     private readonly TimeSpan _freshTtl = TimeSpan.FromSeconds(config.GetValue("Redirect:CacheSeconds", 60));
     private readonly TimeSpan _staleTtl = TimeSpan.FromSeconds(config.GetValue("Redirect:StaleSeconds", 3600));
@@ -20,6 +25,7 @@ public sealed class LinkLookupClient(HttpClient http, IMemoryCache cache, IConfi
         cache.TryGetValue(code, out Entry? entry);
         if (entry is not null && entry.FreshUntilUtc > now)
         {
+            Record("cache_hit");
             return entry.Url;
         }
 
@@ -28,12 +34,20 @@ public sealed class LinkLookupClient(HttpClient http, IMemoryCache cache, IConfi
         {
             url = await FetchAsync(code, ct);
         }
-        catch (Exception ex) when (entry?.Url is not null && !ct.IsCancellationRequested)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
+            if (entry?.Url is null)
+            {
+                Record("error");
+                throw;
+            }
+
+            Record("stale");
             logger.LogWarning("Link service unavailable, serving stale URL for {Code}: {Error}", code, ex.Message);
             return entry.Url;
         }
 
+        Record(url is null ? "not_found" : "fetched");
         cache.Set(code, new Entry(url, now + (url is null ? _notFoundTtl : _freshTtl)), new MemoryCacheEntryOptions
         {
             Size = 1,
@@ -41,6 +55,8 @@ public sealed class LinkLookupClient(HttpClient http, IMemoryCache cache, IConfi
         });
         return url;
     }
+
+    private static void Record(string result) => Lookups.Add(1, new KeyValuePair<string, object?>("result", result));
 
     private async Task<string?> FetchAsync(string code, CancellationToken ct)
     {

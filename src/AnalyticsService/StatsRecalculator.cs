@@ -1,19 +1,26 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using AnalyticsService.Data;
 using Microsoft.EntityFrameworkCore;
+using TinyLink.ServiceDefaults;
 
 namespace AnalyticsService;
 
 public sealed class StatsRecalculator(IServiceScopeFactory scopeFactory, ILogger<StatsRecalculator> logger)
 {
+    private static readonly Histogram<double> Duration = TinyLinkMetrics.Meter.CreateHistogram<double>(
+        "tinylink.stats.recalculation.duration", unit: "s", description: "Time to run usp_RecalculateLinkStats");
+
     public async Task RunAsync(CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AnalyticsDbContext>();
 
-        var stopwatch = Stopwatch.StartNew();
+        var start = Stopwatch.GetTimestamp();
         await db.Database.ExecuteSqlRawAsync("EXEC dbo.usp_RecalculateLinkStats", ct);
-        logger.LogInformation("Recalculated link stats in {ElapsedMs} ms", stopwatch.ElapsedMilliseconds);
+        var elapsed = Stopwatch.GetElapsedTime(start);
+        Duration.Record(elapsed.TotalSeconds);
+        logger.LogInformation("Recalculated link stats in {ElapsedMs} ms", (long)elapsed.TotalMilliseconds);
     }
 }
 

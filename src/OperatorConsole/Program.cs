@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews(o => o.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
 builder.Services.AddHealthChecks();
+builder.Services.AddTinyLinkMetrics();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>
@@ -88,6 +89,7 @@ app.UseAuthorization();
 app.UseSession();
 
 app.MapDefaultHealthChecks();
+app.MapTinyLinkMetrics(app.Configuration);
 app.MapStaticAssets();
 app.MapControllerRoute(
         name: "default",

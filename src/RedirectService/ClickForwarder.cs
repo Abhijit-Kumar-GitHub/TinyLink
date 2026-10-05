@@ -1,5 +1,7 @@
+using System.Diagnostics.Metrics;
 using System.Threading.Channels;
 using TinyLink.Contracts;
+using TinyLink.ServiceDefaults;
 
 namespace RedirectService;
 
@@ -8,10 +10,31 @@ namespace RedirectService;
 // stall redirects or exhaust memory.
 public sealed class ClickQueue
 {
-    private readonly Channel<RecordClickRequest> _channel = Channel.CreateBounded<RecordClickRequest>(
-        new BoundedChannelOptions(10_000) { FullMode = BoundedChannelFullMode.DropOldest });
+    private static readonly Counter<long> Enqueued = TinyLinkMetrics.Meter.CreateCounter<long>("tinylink.clicks.enqueued");
+    public static readonly Counter<long> Dropped = TinyLinkMetrics.Meter.CreateCounter<long>(
+        "tinylink.clicks.dropped", description: "Clicks never delivered to analytics, by reason: queue_full, send_failed, shutdown");
 
-    public void Enqueue(RecordClickRequest click) => _channel.Writer.TryWrite(click);
+    private readonly Channel<RecordClickRequest> _channel;
+
+    public ClickQueue()
+    {
+        _channel = Channel.CreateBounded<RecordClickRequest>(
+            new BoundedChannelOptions(10_000) { FullMode = BoundedChannelFullMode.DropOldest },
+            _ => Dropped.Add(1, new KeyValuePair<string, object?>("reason", "queue_full")));
+        TinyLinkMetrics.Meter.CreateObservableGauge("tinylink.clicks.queue_depth", () => _channel.Reader.Count);
+    }
+
+    public void Enqueue(RecordClickRequest click)
+    {
+        if (_channel.Writer.TryWrite(click))
+        {
+            Enqueued.Add(1);
+        }
+        else
+        {
+            Dropped.Add(1, new KeyValuePair<string, object?>("reason", "shutdown"));
+        }
+    }
 
     public void Complete() => _channel.Writer.TryComplete();
 
@@ -82,14 +105,21 @@ public sealed class ClickForwarder(ClickQueue queue, IHttpClientFactory httpClie
         {
             using var response = await http.PostAsJsonAsync("api/clicks/batch", new RecordClicksBatchRequest(batch),
                 AppJsonContext.Default.RecordClicksBatchRequest, deadline);
-            if (!response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Analytics rejected a batch of {Count} clicks: {Status}", batch.Count, (int)response.StatusCode);
+                Forwarded.Add(batch.Count);
+                return;
             }
+
+            logger.LogWarning("Analytics rejected a batch of {Count} clicks: {Status}", batch.Count, (int)response.StatusCode);
         }
         catch (Exception ex) when (!deadline.IsCancellationRequested)
         {
             logger.LogWarning("Dropped a batch of {Count} clicks: {Error}", batch.Count, ex.Message);
         }
+
+        ClickQueue.Dropped.Add(batch.Count, new KeyValuePair<string, object?>("reason", "send_failed"));
     }
+
+    private static readonly Counter<long> Forwarded = TinyLinkMetrics.Meter.CreateCounter<long>("tinylink.clicks.forwarded");
 }

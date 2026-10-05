@@ -26,8 +26,10 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, ILogger<Reque
         }
         finally
         {
-            // Kubernetes probes hit /health every few seconds; keep them out of normal logs.
-            var level = context.Request.Path.StartsWithSegments("/health") ? LogLevel.Debug : LogLevel.Information;
+            // Kubernetes probes and Prometheus hit these every few seconds; keep them out of normal logs.
+            var level = context.Request.Path.StartsWithSegments("/health") || context.Request.Path.StartsWithSegments("/metrics")
+                ? LogLevel.Debug
+                : LogLevel.Information;
             logger.Log(level, "HTTP {Method} {Path} -> {StatusCode} in {ElapsedMs:0.0} ms (trace {TraceId})",
                 context.Request.Method, context.Request.Path.Value, context.Response.StatusCode,
                 Stopwatch.GetElapsedTime(start).TotalMilliseconds, traceId);

@@ -1,10 +1,12 @@
 using System.Data;
+using System.Diagnostics.Metrics;
 using System.Text.RegularExpressions;
 using AnalyticsService.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TinyLink.Contracts;
+using TinyLink.ServiceDefaults;
 
 namespace AnalyticsService.Controllers;
 
@@ -14,6 +16,8 @@ namespace AnalyticsService.Controllers;
 public partial class ClicksController(AnalyticsDbContext db) : ControllerBase
 {
     public const int MaxBatchSize = 1000;
+    private static readonly Counter<long> Ingested = TinyLinkMetrics.Meter.CreateCounter<long>(
+        "tinylink.clicks.ingested", description: "Click events stored in AnalyticsServiceDb");
     private const int MaxTextLength = 512;
     private static readonly TimeSpan AllowedClockSkew = TimeSpan.FromMinutes(5);
 
@@ -31,6 +35,7 @@ public partial class ClicksController(AnalyticsDbContext db) : ControllerBase
 
         db.ClickEvents.Add(ToEntity(request, DateTime.UtcNow));
         await db.SaveChangesAsync(ct);
+        Ingested.Add(1);
         return Accepted();
     }
 
@@ -48,6 +53,7 @@ public partial class ClicksController(AnalyticsDbContext db) : ControllerBase
         var now = DateTime.UtcNow;
         var valid = request.Clicks.Where(IsValid).Select(c => ToEntity(c, now)).ToList();
         await BulkInsertAsync(valid, ct);
+        Ingested.Add(valid.Count);
 
         return Accepted(new RecordClicksBatchResponse(valid.Count, request.Clicks.Count - valid.Count));
     }

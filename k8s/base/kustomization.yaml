@@ -9,19 +9,36 @@ resources:
   - redirect-service.yaml
   - operator-console.yaml
   - ingress.yaml
+  - monitoring/prometheus.yaml
+  - monitoring/node-exporter.yaml
+  - monitoring/grafana.yaml
 
 # Non-secret settings shared by every pod. Generated name gets a content hash, so editing a value
 # rolls the pods that use it. Overlays merge environment-specific values on top.
 configMapGenerator:
   - name: tinylink-config
     literals:
-      - ASPNETCORE_HTTP_PORTS=8080
+      # 8080 = app traffic (Service/Ingress); 9090 = /metrics, scraped by Prometheus directly from the pod.
+      - ASPNETCORE_HTTP_PORTS=8080;9090
+      - Metrics__Port=9090
       # Workstation GC: far smaller heap footprint than Server GC, which matters on 1 GB nodes.
       - DOTNET_gcServer=0
       - Services__LinkService=http://link-service/
       - Services__AnalyticsService=http://analytics-service/
       - Operator__Username=operator
       - Console__ShortUrlBase=http://change-me/
+  - name: prometheus-config
+    files:
+      - monitoring/prometheus.yml
+  - name: grafana-datasources
+    files:
+      - datasources.yaml=monitoring/grafana-datasources.yaml
+  - name: grafana-dashboard-provider
+    files:
+      - provider.yaml=monitoring/grafana-dashboard-provider.yaml
+  - name: grafana-dashboards
+    files:
+      - monitoring/dashboards/tinylink.json
 
 images:
   - name: farspawn/tinylink-link

@@ -14,6 +14,14 @@ spec:
             pathType: Prefix
             backend:
               service: { name: operator-console, port: { name: http } }
+    # Grafana dashboards (own login). Prometheus itself stays internal.
+    - host: grafana.change-me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: grafana, port: { name: http } }
     # Everything else: short links, e.g. http://<host>/<code>.
     - http:
         paths:

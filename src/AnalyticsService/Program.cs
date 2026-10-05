@@ -8,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddApiDefaults();
+builder.Services.AddTinyLinkMetrics();
 builder.Services.AddDbContext<AnalyticsDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("AnalyticsServiceDb"),
         sql => sql.EnableRetryOnFailure()));
@@ -27,6 +28,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapDefaultHealthChecks();
+app.MapTinyLinkMetrics(app.Configuration);
 app.MapControllers();
 
 app.Run();

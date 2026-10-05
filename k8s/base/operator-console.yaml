@@ -14,6 +14,10 @@ spec:
   template:
     metadata:
       labels: { app: operator-console }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: /metrics
     spec:
       nodeSelector:
         tinylink.io/role: ops
@@ -25,6 +29,8 @@ spec:
           image: farspawn/tinylink-console
           ports:
             - { name: http, containerPort: 8080 }
+            # Internal only: not in the Service, so the Ingress can never route to it.
+            - { name: metrics, containerPort: 9090 }
           envFrom:
             - configMapRef: { name: tinylink-config }
           env:

@@ -10,6 +10,10 @@ spec:
   template:
     metadata:
       labels: { app: link-service }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: /metrics
     spec:
       nodeSelector:
         tinylink.io/role: traffic
@@ -21,6 +25,8 @@ spec:
           image: farspawn/tinylink-link
           ports:
             - { name: http, containerPort: 8080 }
+            # Internal only: not in the Service, so the Ingress can never route to it.
+            - { name: metrics, containerPort: 9090 }
           envFrom:
             - configMapRef: { name: tinylink-config }
           env:

@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using LinkService.Data;
@@ -15,6 +16,9 @@ public partial class LinksController(LinkDbContext db) : ControllerBase
     private const string Alphabet = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private const int GeneratedCodeLength = 7;
     private const int MaxGenerateAttempts = 5;
+
+    private static readonly Counter<long> LinksCreated = TinyLinkMetrics.Meter.CreateCounter<long>(
+        "tinylink.links.created", description: "Short links created, by kind: generated or custom");
 
     [GeneratedRegex("^[A-Za-z0-9_-]{3,16}$")]
     private static partial Regex CustomCodePattern();
@@ -50,6 +54,7 @@ public partial class LinksController(LinkDbContext db) : ControllerBase
             try
             {
                 await db.SaveChangesAsync(ct);
+                LinksCreated.Add(1, new KeyValuePair<string, object?>("kind", custom is null ? "generated" : "custom"));
                 return CreatedAtAction(nameof(GetByCode), new { code = link.Code }, ToResponse(link));
             }
             catch (DbUpdateException)

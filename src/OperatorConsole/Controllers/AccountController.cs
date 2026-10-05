@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,12 +9,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using OperatorConsole.Models;
 using OperatorConsole.Services;
+using TinyLink.ServiceDefaults;
 
 namespace OperatorConsole.Controllers;
 
 [AllowAnonymous]
 public class AccountController(IConfiguration config, ILogger<AccountController> logger) : Controller
 {
+    private static readonly Counter<long> Logins = TinyLinkMetrics.Meter.CreateCounter<long>(
+        "tinylink.console.logins", description: "Operator login attempts, by result: success or failure");
+
     [HttpGet]
     public IActionResult Login(string? returnUrl)
     {
@@ -42,6 +47,7 @@ public class AccountController(IConfiguration config, ILogger<AccountController>
         if (!userMatches || !passwordMatches || expectedUser.Length == 0)
         {
             logger.LogWarning("Failed operator login for {Username}", model.Username);
+            Logins.Add(1, new KeyValuePair<string, object?>("result", "failure"));
             ModelState.AddModelError("", "Invalid username or password.");
             model.Password = "";
             return View(model);
@@ -50,6 +56,7 @@ public class AccountController(IConfiguration config, ILogger<AccountController>
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, expectedUser)], CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
         logger.LogInformation("Operator {Username} logged in", expectedUser);
+        Logins.Add(1, new KeyValuePair<string, object?>("result", "success"));
 
         return Url.IsLocalUrl(model.ReturnUrl) ? LocalRedirect(model.ReturnUrl) : RedirectToAction("Index", "Links");
     }
