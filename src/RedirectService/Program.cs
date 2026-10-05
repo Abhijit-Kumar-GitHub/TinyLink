@@ -1,15 +1,15 @@
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
 using RedirectService;
 using TinyLink.Contracts;
+using TinyLink.ServiceDefaults;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default));
 builder.Services.AddMemoryCache(o => o.SizeLimit = 10_000);
-builder.Services.AddHealthChecks();
+builder.Services.AddApiDefaults();
 
 builder.Services.AddHttpClient<LinkLookupClient>(c =>
         c.BaseAddress = new Uri(builder.Configuration["Services:LinkService"]!))
@@ -43,8 +43,9 @@ builder.Services.AddHttpClient(ClickForwarder.HttpClientName, c =>
 
 var app = builder.Build();
 
-app.MapHealthChecks("/health/live");
-app.MapHealthChecks("/health/ready");
+app.UseRequestLogging();
+app.UseExceptionHandler();
+app.MapDefaultHealthChecks();
 
 var codePattern = new Regex("^[A-Za-z0-9_-]{1,16}$", RegexOptions.Compiled);
 

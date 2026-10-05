@@ -2,8 +2,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace AnalyticsService;
+namespace TinyLink.ServiceDefaults;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class ApiKeyAttribute : Attribute, IAuthorizationFilter

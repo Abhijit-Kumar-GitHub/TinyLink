@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TinyLink.Contracts\TinyLink.Contracts.csproj" />
+    <ProjectReference Include="..\TinyLink.ServiceDefaults\TinyLink.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>

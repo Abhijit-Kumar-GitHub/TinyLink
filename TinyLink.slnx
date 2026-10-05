@@ -5,5 +5,6 @@
     <Project Path="src/OperatorConsole/OperatorConsole.csproj" />
     <Project Path="src/RedirectService/RedirectService.csproj" />
     <Project Path="src/TinyLink.Contracts/TinyLink.Contracts.csproj" />
+    <Project Path="src/TinyLink.ServiceDefaults/TinyLink.ServiceDefaults.csproj" />
   </Folder>
 </Solution>

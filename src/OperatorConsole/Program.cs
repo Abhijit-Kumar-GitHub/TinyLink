@@ -1,9 +1,9 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Http.Resilience;
 using OperatorConsole.Services;
+using TinyLink.ServiceDefaults;
 
 if (args is ["hash-password", var plainPassword])
 {
@@ -62,6 +62,8 @@ builder.Services.AddHttpClient<AnalyticsApiClient>(c =>
 
 var app = builder.Build();
 
+// The console renders an HTML error page rather than the APIs' ProblemDetails handler.
+app.UseRequestLogging();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -73,8 +75,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseSession();
 
-app.MapHealthChecks("/health/live");
-app.MapHealthChecks("/health/ready");
+app.MapDefaultHealthChecks();
 app.MapStaticAssets();
 app.MapControllerRoute(
         name: "default",

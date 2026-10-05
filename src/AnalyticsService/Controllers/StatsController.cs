@@ -2,6 +2,7 @@ using AnalyticsService.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TinyLink.Contracts;
+using TinyLink.ServiceDefaults;
 
 namespace AnalyticsService.Controllers;
 

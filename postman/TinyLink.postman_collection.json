@@ -1,0 +1,226 @@
+{
+  "info": {
+    "name": "TinyLink",
+    "description": "Link, Analytics and Redirect APIs. Run top to bottom: requests chain via collection variables (createdCode). Set baseUrl variables for local (default) or the deployed Elastic IP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "linkBase", "value": "http://localhost:5001" },
+    { "key": "analyticsBase", "value": "http://localhost:5003" },
+    { "key": "redirectBase", "value": "http://localhost:5002" },
+    { "key": "apiKey", "value": "dev-api-key" },
+    { "key": "createdCode", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Link service ready",
+          "request": { "method": "GET", "url": "{{linkBase}}/health/ready" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 Healthy', () => { pm.response.to.have.status(200); pm.expect(pm.response.text()).to.eql('Healthy'); });"
+          ] } }]
+        },
+        {
+          "name": "Analytics service ready",
+          "request": { "method": "GET", "url": "{{analyticsBase}}/health/ready" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 Healthy', () => pm.response.to.have.status(200));"
+          ] } }]
+        },
+        {
+          "name": "Redirect service live",
+          "request": { "method": "GET", "url": "{{redirectBase}}/health/live" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 Healthy', () => pm.response.to.have.status(200));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Links",
+      "item": [
+        {
+          "name": "Create link (generated code)",
+          "request": {
+            "method": "POST",
+            "url": "{{linkBase}}/api/links",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{apiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{ \"url\": \"https://example.com/postman/{{$timestamp}}\" }" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "const body = pm.response.json();",
+            "pm.test('7-char code', () => pm.expect(body.code).to.match(/^[A-Za-z0-9]{7}$/));",
+            "pm.test('Location header', () => pm.response.to.have.header('Location'));",
+            "pm.collectionVariables.set('createdCode', body.code);"
+          ] } }]
+        },
+        {
+          "name": "Create link with taken custom code (409)",
+          "event": [
+            { "listen": "prerequest", "script": { "exec": [
+              "pm.sendRequest({ url: pm.collectionVariables.get('linkBase') + '/api/links', method: 'POST',",
+              "  header: { 'X-Api-Key': pm.collectionVariables.get('apiKey'), 'Content-Type': 'application/json' },",
+              "  body: { mode: 'raw', raw: JSON.stringify({ url: 'https://example.com', customCode: 'pm-dup' }) } });"
+            ] } },
+            { "listen": "test", "script": { "exec": [
+              "pm.test('409 Conflict', () => pm.response.to.have.status(409));"
+            ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{linkBase}}/api/links",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{apiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{ \"url\": \"https://example.com\", \"customCode\": \"pm-dup\" }" }
+          }
+        },
+        {
+          "name": "Create link with invalid URL (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{linkBase}}/api/links",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{apiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{ \"url\": \"javascript:alert(1)\" }" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('400 with Url error', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().errors).to.have.property('Url'); });"
+          ] } }]
+        },
+        {
+          "name": "Create link without API key (401)",
+          "request": {
+            "method": "POST",
+            "url": "{{linkBase}}/api/links",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"url\": \"https://example.com\" }" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+          ] } }]
+        },
+        {
+          "name": "Get link by code",
+          "request": { "method": "GET", "url": "{{linkBase}}/api/links/{{createdCode}}" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 with matching code', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().code).to.eql(pm.collectionVariables.get('createdCode')); });"
+          ] } }]
+        },
+        {
+          "name": "Get link, wrong case (404, codes are case-sensitive)",
+          "request": { "method": "GET", "url": "{{linkBase}}/api/links/{{createdCode}}" },
+          "event": [
+            { "listen": "prerequest", "script": { "exec": [
+              "const c = pm.collectionVariables.get('createdCode');",
+              "const flipped = c.split('').map(ch => ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase()).join('');",
+              "pm.request.url = pm.collectionVariables.get('linkBase') + '/api/links/' + flipped;"
+            ] } },
+            { "listen": "test", "script": { "exec": [
+              "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+            ] } }
+          ]
+        },
+        {
+          "name": "List links",
+          "request": {
+            "method": "GET",
+            "url": "{{linkBase}}/api/links?take=20",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }]
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 array', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.be.an('array'); });"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Redirect",
+      "item": [
+        {
+          "name": "Follow short link (302)",
+          "protocolProfileBehavior": { "followRedirects": false },
+          "request": { "method": "GET", "url": "{{redirectBase}}/{{createdCode}}" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('302 to the original URL', () => { pm.response.to.have.status(302); pm.expect(pm.response.headers.get('Location')).to.include('example.com/postman/'); });",
+            "pm.test('X-Trace-Id header', () => pm.response.to.have.header('X-Trace-Id'));"
+          ] } }]
+        },
+        {
+          "name": "Unknown code (404)",
+          "protocolProfileBehavior": { "followRedirects": false },
+          "request": { "method": "GET", "url": "{{redirectBase}}/doesNotExist1" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Record click directly",
+          "request": {
+            "method": "POST",
+            "url": "{{analyticsBase}}/api/clicks",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"code\": \"{{createdCode}}\", \"clickedAtUtc\": \"{{$isoTimestamp}}\", \"userAgent\": \"Postman\" }" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('202 Accepted', () => pm.response.to.have.status(202));"
+          ] } }]
+        },
+        {
+          "name": "Recalculate stats",
+          "request": {
+            "method": "POST",
+            "url": "{{analyticsBase}}/api/stats/recalculate",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }]
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+          ] } }]
+        },
+        {
+          "name": "Stats for created code",
+          "request": {
+            "method": "GET",
+            "url": "{{analyticsBase}}/api/stats/{{createdCode}}",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }]
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 with at least 1 click (redirect + direct click)', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().totalClicks).to.be.at.least(1); });"
+          ] } }]
+        },
+        {
+          "name": "Top links",
+          "request": {
+            "method": "GET",
+            "url": "{{analyticsBase}}/api/stats?take=10",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }]
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 array', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.be.an('array'); });"
+          ] } }]
+        },
+        {
+          "name": "Stats without API key (401)",
+          "request": { "method": "GET", "url": "{{analyticsBase}}/api/stats" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+          ] } }]
+        }
+      ]
+    }
+  ]
+}
