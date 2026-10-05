@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: link-service
+  labels: { app: link-service }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: link-service }
+  template:
+    metadata:
+      labels: { app: link-service }
+    spec:
+      nodeSelector:
+        tinylink.io/role: traffic
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: link-service
+          image: farspawn/tinylink-link
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef: { name: tinylink-config }
+          env:
+            - name: ConnectionStrings__LinkServiceDb
+              valueFrom: { secretKeyRef: { name: tinylink-secrets, key: LinkServiceDb } }
+            - name: ApiKey
+              valueFrom: { secretKeyRef: { name: tinylink-secrets, key: ApiKey } }
+          resources:
+            requests: { cpu: 100m, memory: 96Mi }
+            limits: { cpu: 500m, memory: 192Mi }
+          # Migrations run before the app listens, so give startup up to 2 minutes.
+          startupProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 2
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: link-service
+spec:
+  selector: { app: link-service }
+  ports:
+    - { name: http, port: 80, targetPort: http }

@@ -1,0 +1,23 @@
+# Only the redirect service and the console are public. The link and analytics APIs stay ClusterIP-only.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tinylink
+spec:
+  ingressClassName: traefik
+  rules:
+    # Console on its own host name (overlays set the real one).
+    - host: console.change-me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: operator-console, port: { name: http } }
+    # Everything else: short links, e.g. http://<host>/<code>.
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: redirect-service, port: { name: http } }

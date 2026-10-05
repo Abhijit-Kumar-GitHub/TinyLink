@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  labels: { app: analytics-service }
+spec:
+  # Exactly one: the stats recalculation BackgroundService runs in every replica.
+  replicas: 1
+  selector:
+    matchLabels: { app: analytics-service }
+  template:
+    metadata:
+      labels: { app: analytics-service }
+    spec:
+      nodeSelector:
+        tinylink.io/role: ops
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: analytics-service
+          image: farspawn/tinylink-analytics
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef: { name: tinylink-config }
+          env:
+            - name: ConnectionStrings__AnalyticsServiceDb
+              valueFrom: { secretKeyRef: { name: tinylink-secrets, key: AnalyticsServiceDb } }
+            - name: ApiKey
+              valueFrom: { secretKeyRef: { name: tinylink-secrets, key: ApiKey } }
+          resources:
+            requests: { cpu: 100m, memory: 96Mi }
+            limits: { cpu: 500m, memory: 192Mi }
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+spec:
+  selector: { app: analytics-service }
+  ports:
+    - { name: http, port: 80, targetPort: http }

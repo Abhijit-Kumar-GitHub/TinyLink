@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Kubernetes overlay secrets (templates are committed as secrets.env.example)
+k8s/overlays/*/secrets.env
+
 # Local-only notes and tooling config
 *.local.md
 CLAUDE.md

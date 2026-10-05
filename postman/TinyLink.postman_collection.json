@@ -116,9 +116,9 @@
           "request": { "method": "GET", "url": "{{linkBase}}/api/links/{{createdCode}}" },
           "event": [
             { "listen": "prerequest", "script": { "exec": [
-              "const c = pm.collectionVariables.get('createdCode');",
+              "const c = pm.variables.get('createdCode');",
               "const flipped = c.split('').map(ch => ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase()).join('');",
-              "pm.request.url = pm.collectionVariables.get('linkBase') + '/api/links/' + flipped;"
+              "pm.request.url = pm.variables.get('linkBase') + '/api/links/' + flipped;"
             ] } },
             { "listen": "test", "script": { "exec": [
               "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
@@ -173,6 +173,18 @@
           },
           "event": [{ "listen": "test", "script": { "exec": [
             "pm.test('202 Accepted', () => pm.response.to.have.status(202));"
+          ] } }]
+        },
+        {
+          "name": "Record click batch (redirect service's normal path)",
+          "request": {
+            "method": "POST",
+            "url": "{{analyticsBase}}/api/clicks/batch",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"clicks\": [ { \"code\": \"{{createdCode}}\", \"clickedAtUtc\": \"{{$isoTimestamp}}\", \"userAgent\": \"Postman\" }, { \"code\": \"{{createdCode}}\", \"clickedAtUtc\": \"{{$isoTimestamp}}\" }, { \"code\": \"bad code!\", \"clickedAtUtc\": \"{{$isoTimestamp}}\" } ] }" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('202 with 2 accepted, 1 rejected', () => { pm.response.to.have.status(202); const b = pm.response.json(); pm.expect(b.accepted).to.eql(2); pm.expect(b.rejected).to.eql(1); });"
           ] } }]
         },
         {

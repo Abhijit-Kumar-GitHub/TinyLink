@@ -7,4 +7,5 @@ namespace RedirectService;
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(LinkResponse))]
 [JsonSerializable(typeof(RecordClickRequest))]
+[JsonSerializable(typeof(RecordClicksBatchRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;

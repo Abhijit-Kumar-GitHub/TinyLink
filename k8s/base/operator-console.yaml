@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operator-console
+  labels: { app: operator-console }
+spec:
+  # Single replica: session state and data-protection keys are in memory. Recreate avoids two pods
+  # overlapping during a rollout.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: operator-console }
+  template:
+    metadata:
+      labels: { app: operator-console }
+    spec:
+      nodeSelector:
+        tinylink.io/role: ops
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: operator-console
+          image: farspawn/tinylink-console
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef: { name: tinylink-config }
+          env:
+            - name: ApiKey
+              valueFrom: { secretKeyRef: { name: tinylink-secrets, key: ApiKey } }
+            - name: Operator__PasswordHash
+              valueFrom: { secretKeyRef: { name: tinylink-secrets, key: OperatorPasswordHash } }
+          resources:
+            requests: { cpu: 50m, memory: 80Mi }
+            limits: { cpu: 300m, memory: 160Mi }
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: operator-console
+spec:
+  selector: { app: operator-console }
+  ports:
+    - { name: http, port: 80, targetPort: http }

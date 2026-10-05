@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redirect-service
+  labels: { app: redirect-service }
+spec:
+  # No replicas field: the HorizontalPodAutoscaler below owns the replica count.
+  selector:
+    matchLabels: { app: redirect-service }
+  template:
+    metadata:
+      labels: { app: redirect-service }
+    spec:
+      nodeSelector:
+        tinylink.io/role: traffic
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: redirect-service
+          image: farspawn/tinylink-redirect
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef: { name: tinylink-config }
+          # Native AOT: ~16 MB idle, starts in <100 ms, so small requests and quick probes are realistic.
+          # HPA utilisation is measured against the CPU *request*.
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 500m, memory: 96Mi }
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redirect-service
+spec:
+  selector: { app: redirect-service }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: redirect-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: redirect-service
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 50 }
+  behavior:
+    # Default scale-down wait is 5 minutes; 60s keeps the scale-in visible during a short demo.
+    scaleDown:
+      stabilizationWindowSeconds: 60

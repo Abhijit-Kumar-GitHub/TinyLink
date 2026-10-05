@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Http.Resilience;
 using OperatorConsole.Services;
@@ -37,6 +38,16 @@ builder.Services.AddSession(o =>
     o.IdleTimeout = TimeSpan.FromHours(8);
 });
 
+// Behind the Traefik Ingress, RemoteIpAddress is the proxy; take the client IP from X-Forwarded-For so
+// the login rate limit is per user. Safe because the console is only reachable through the Ingress,
+// and Traefik replaces any client-supplied X-Forwarded-For by default.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -62,6 +73,7 @@ builder.Services.AddHttpClient<AnalyticsApiClient>(c =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 // The console renders an HTML error page rather than the APIs' ProblemDetails handler.
 app.UseRequestLogging();
 if (!app.Environment.IsDevelopment())
