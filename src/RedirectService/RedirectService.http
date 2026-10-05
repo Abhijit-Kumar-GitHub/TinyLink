@@ -1,0 +1,12 @@
+@base = http://localhost:5002
+
+### Liveness
+GET {{base}}/health/live
+
+### Follow a short link (expect 302 + Location header). Needs LinkService on 5001.
+# @no-redirect
+GET {{base}}/Abc
+
+### Unknown code (expect 404)
+# @no-redirect
+GET {{base}}/nope999
