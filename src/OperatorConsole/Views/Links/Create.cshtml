@@ -1,0 +1,30 @@
+@model CreateLinkViewModel
+@{
+    ViewData["Title"] = "New link";
+}
+
+<div class="row">
+    <div class="col-lg-7">
+        <h1 class="h3 mb-4">New short link</h1>
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+            <div class="mb-3">
+                <label asp-for="Url" class="form-label"></label>
+                <input asp-for="Url" class="form-control" placeholder="https://example.com/a/very/long/path" autofocus />
+                <span asp-validation-for="Url" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="CustomCode" class="form-label"></label>
+                <input asp-for="CustomCode" class="form-control" placeholder="Leave blank to generate one" />
+                <div class="form-text">3-16 characters. Codes are case-sensitive.</div>
+                <span asp-validation-for="CustomCode" class="text-danger small"></span>
+            </div>
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a asp-action="Index" class="btn btn-link">Cancel</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

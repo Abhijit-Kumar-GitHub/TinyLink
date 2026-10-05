@@ -1,0 +1,72 @@
+@model LinkListViewModel
+@{
+    ViewData["Title"] = "Links";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">Links</h1>
+    <a asp-action="Create" class="btn btn-primary">New link</a>
+</div>
+
+@if (TempData["Created"] is string created)
+{
+    <div class="alert alert-success" role="status">
+        Link created: <a href="@created" target="_blank" rel="noopener">@created</a>
+    </div>
+}
+
+@if (!Model.LinkServiceAvailable)
+{
+    <div class="alert alert-danger" role="alert">The link service is unavailable right now. Try again shortly.</div>
+}
+else if (!Model.AnalyticsAvailable)
+{
+    <div class="alert alert-warning" role="alert">Click statistics are temporarily unavailable. Links are shown without counts.</div>
+}
+
+<form method="get" asp-action="Index" class="row g-2 mb-3">
+    <div class="col-sm-8 col-md-6">
+        <input type="search" name="search" value="@Model.Search" class="form-control" placeholder="Filter by code or URL" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary">Filter</button>
+        @if (!string.IsNullOrEmpty(Model.Search))
+        {
+            @* Explicit empty ?search= so the remembered Session filter is overwritten, not reused. *@
+            <a href="@(Url.Action("Index"))?search=" class="btn btn-link">Clear</a>
+        }
+    </div>
+</form>
+
+@if (Model.LinkServiceAvailable && Model.Links.Count == 0)
+{
+    <p class="text-muted">No links@(string.IsNullOrEmpty(Model.Search) ? "" : " match this filter").</p>
+}
+else if (Model.Links.Count > 0)
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Short link</th>
+                    <th>Destination</th>
+                    <th class="text-end">Clicks</th>
+                    <th class="text-end">Last 24h</th>
+                    <th>Created (UTC)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var link in Model.Links)
+                {
+                    <tr>
+                        <td><a href="@link.ShortUrl" target="_blank" rel="noopener" class="font-monospace">@link.Code</a></td>
+                        <td class="text-break" style="max-width: 28rem;">@link.Url</td>
+                        <td class="text-end">@(link.TotalClicks?.ToString("N0") ?? "n/a")</td>
+                        <td class="text-end">@(link.ClicksLast24h?.ToString("N0") ?? "n/a")</td>
+                        <td class="text-nowrap">@link.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
