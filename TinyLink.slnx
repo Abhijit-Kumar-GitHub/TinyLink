@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AnalyticsService/AnalyticsService.csproj" />
+    <Project Path="src/LinkService/LinkService.csproj" />
+    <Project Path="src/OperatorConsole/OperatorConsole.csproj" />
+    <Project Path="src/RedirectService/RedirectService.csproj" />
+    <Project Path="src/TinyLink.Contracts/TinyLink.Contracts.csproj" />
+  </Folder>
+</Solution>
