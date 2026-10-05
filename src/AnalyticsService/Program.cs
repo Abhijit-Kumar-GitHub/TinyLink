@@ -1,23 +1,29 @@
+using AnalyticsService;
+using AnalyticsService.Data;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddDbContext<AnalyticsDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("AnalyticsServiceDb"),
+        sql => sql.EnableRetryOnFailure()));
+builder.Services.AddSingleton<StatsRecalculator>();
+builder.Services.AddHostedService<StatsRecalculationService>();
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AnalyticsDbContext>(tags: ["ready"]);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
 app.MapControllers();
 
 app.Run();

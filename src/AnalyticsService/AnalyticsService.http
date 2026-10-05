@@ -1,6 +1,26 @@
-@AnalyticsService_HostAddress = http://localhost:5035
+@base = http://localhost:5003
+@key = dev-api-key
 
-GET {{AnalyticsService_HostAddress}}/weatherforecast/
-Accept: application/json
+### Liveness
+GET {{base}}/health/live
 
-###
+### Readiness (checks the database)
+GET {{base}}/health/ready
+
+### Record a click (normally sent by the redirect service)
+POST {{base}}/api/clicks
+Content-Type: application/json
+
+{ "code": "ghub", "clickedAtUtc": "2026-10-05T10:00:00Z", "referrer": "https://google.com", "userAgent": "REST Client" }
+
+### Force a stats recalculation (otherwise runs on a timer)
+POST {{base}}/api/stats/recalculate
+X-Api-Key: {{key}}
+
+### Top links by clicks
+GET {{base}}/api/stats?take=20
+X-Api-Key: {{key}}
+
+### Stats for one code
+GET {{base}}/api/stats/ghub
+X-Api-Key: {{key}}
