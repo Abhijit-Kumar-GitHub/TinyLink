@@ -11,11 +11,16 @@ variable "project" {
 }
 
 variable "admin_cidr" {
-  description = "Your public IP as a /32 (e.g. 203.0.113.7/32). Only this address may SSH to the nodes or reach the Kubernetes API."
+  description = <<-EOT
+    Optional: your public IP as a /32 to open SSH (22) and the Kubernetes API (6443) to it.
+    Default "" opens neither: admin access goes through SSM Session Manager (no inbound ports at all),
+    which also works from networks whose public IP keeps changing, such as a mobile hotspot.
+  EOT
   type        = string
+  default     = ""
   validation {
-    condition     = can(cidrhost(var.admin_cidr, 0)) && endswith(var.admin_cidr, "/32")
-    error_message = "admin_cidr must be a single IPv4 address in CIDR form, ending in /32."
+    condition     = var.admin_cidr == "" || (can(cidrhost(var.admin_cidr, 0)) && endswith(var.admin_cidr, "/32"))
+    error_message = "admin_cidr must be empty or a single IPv4 address in CIDR form, ending in /32."
   }
 }
 
@@ -25,9 +30,11 @@ variable "ssh_public_key" {
 }
 
 variable "instance_type" {
-  description = "Both k3s nodes. t3.micro is free-tier eligible (1 GB RAM, 2 burstable vCPU)."
+  # t3.small (2 GB) is free-tier eligible on the 2025 credit-based free plan. The k3s server alone
+  # takes ~630 MB, so 1 GB t3.micro nodes leave almost nothing for pods.
+  description = "Both k3s nodes (burstable, 2 vCPU)."
   type        = string
-  default     = "t3.micro"
+  default     = "t3.small"
 }
 
 variable "root_volume_gb" {

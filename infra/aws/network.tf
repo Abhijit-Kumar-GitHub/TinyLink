@@ -27,7 +27,8 @@ locals {
 resource "aws_security_group" "nodes" {
   name        = "${var.project}-nodes"
   description = "k3s nodes: public web, GitHub webhook, admin-only SSH and Kubernetes API"
-  vpc_id      = data.aws_vpc.default.id
+  # (description is immutable on an existing group; admin rules are optional, see var.admin_cidr)
+  vpc_id = data.aws_vpc.default.id
 }
 
 resource "aws_vpc_security_group_ingress_rule" "http" {
@@ -59,6 +60,7 @@ resource "aws_vpc_security_group_ingress_rule" "webhook" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "ssh" {
+  count             = var.admin_cidr == "" ? 0 : 1
   security_group_id = aws_security_group.nodes.id
   description       = "SSH from the admin only"
   cidr_ipv4         = var.admin_cidr
@@ -68,6 +70,7 @@ resource "aws_vpc_security_group_ingress_rule" "ssh" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "kube_api" {
+  count             = var.admin_cidr == "" ? 0 : 1
   security_group_id = aws_security_group.nodes.id
   description       = "kubectl from the admin only"
   cidr_ipv4         = var.admin_cidr

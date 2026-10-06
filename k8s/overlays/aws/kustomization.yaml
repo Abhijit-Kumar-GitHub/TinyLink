@@ -1,0 +1,37 @@
+# AWS k3s cluster (infra/aws). Short links: http://<elastic ip>/<code>
+# Console: http://console.<elastic ip>.nip.io   Grafana: http://grafana.<elastic ip>.nip.io
+# nip.io is wildcard DNS (console.1.2.3.4.nip.io -> 1.2.3.4), so host-based routing works without a domain.
+#
+# generated/ is written by scripts/aws-overlay.sh from Terraform outputs + SSM Parameter Store and
+# is gitignored: run that script before `kubectl apply -k k8s/overlays/aws`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: tinylink
+
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: tinylink-config
+    behavior: merge
+    envs:
+      - generated/config.env
+
+secretGenerator:
+  - name: tinylink-secrets
+    envs:
+      - generated/secrets.env
+
+patches:
+  - path: generated/ingress-hosts.yaml
+    target: { kind: Ingress, name: tinylink }
+
+images:
+  - name: farspawn/tinylink-link
+    newTag: e9b2d1a
+  - name: farspawn/tinylink-analytics
+    newTag: e9b2d1a
+  - name: farspawn/tinylink-redirect
+    newTag: e9b2d1a
+  - name: farspawn/tinylink-console
+    newTag: e9b2d1a
