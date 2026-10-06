@@ -4,6 +4,8 @@
 # Nothing here is committed: generated/ is gitignored, and secrets go straight from SSM into the file.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# Git Bash on Windows rewrites arguments like /tinylink/api-key into file paths; stop it.
+export MSYS_NO_PATHCONV=1
 
 TF="terraform -chdir=infra/aws"
 EIP="$($TF output -raw elastic_ip)"
