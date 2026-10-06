@@ -27,6 +27,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -184,25 +185,30 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         event = self.headers.get("X-GitHub-Event", "")
         if event == "ping":
+            log.info("Delivery %s: ping", delivery)
             self._reply(200, "pong")
             return
         if event != "push":
-            self._reply(202, f"ignored event {event}")
+            self._done(202, f"ignored event {event}", delivery)
             return
 
         try:
-            payload = json.loads(body)
-        except json.JSONDecodeError:
-            self._reply(400, "invalid json")
+            # GitHub's default content type sends the JSON inside a form field named "payload".
+            if self.headers.get("Content-Type", "").startswith("application/x-www-form-urlencoded"):
+                payload = json.loads(urllib.parse.parse_qs(body.decode())["payload"][0])
+            else:
+                payload = json.loads(body)
+        except (json.JSONDecodeError, KeyError, UnicodeDecodeError):
+            self._done(400, "invalid payload", delivery)
             return
 
         if payload.get("ref") != f"refs/heads/{BRANCH}" or payload.get("deleted"):
-            self._reply(202, f"ignored {payload.get('ref')}")
+            self._done(202, f"ignored {payload.get('ref')}", delivery)
             return
 
         sha = str(payload.get("after", ""))
         if not FULL_SHA.match(sha):
-            self._reply(400, "invalid commit sha")
+            self._done(400, "invalid commit sha", delivery)
             return
 
         tag = sha[:7]
@@ -213,6 +219,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
         threading.Thread(target=deploy, args=(tag, cause), daemon=True).start()
         log.info("Accepted delivery %s: deploying %s", delivery, tag)
         self._reply(202, f"deploying {tag}")
+
+    def _done(self, status: int, text: str, delivery: str) -> None:
+        log.info("Delivery %s: %s %s", delivery, status, text)
+        self._reply(status, text)
 
     def _reply(self, status: int, text: str) -> None:
         data = (text + "\n").encode()

@@ -26,12 +26,7 @@ patches:
   - path: generated/ingress-hosts.yaml
     target: { kind: Ingress, name: tinylink }
 
-images:
-  - name: farspawn/tinylink-link
-    newTag: e9b2d1a
-  - name: farspawn/tinylink-analytics
-    newTag: e9b2d1a
-  - name: farspawn/tinylink-redirect
-    newTag: e9b2d1a
-  - name: farspawn/tinylink-console
-    newTag: e9b2d1a
+# Image tags live in generated/ too (a kustomize Component written by the script, default: the
+# current commit), so re-applying this overlay never rolls back what the webhook deployed.
+components:
+  - generated

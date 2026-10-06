@@ -46,7 +46,19 @@ cat > "$OUT/ingress-hosts.yaml" <<EOF
   value: grafana.${EIP}.nip.io
 EOF
 
-echo "Wrote $OUT (EIP ${EIP}, RDS ${RDS})"
+# Image tag: TAG=<sha> to pin explicitly; default is the current commit (built by build-images.sh).
+TAG="${TAG:-$(git rev-parse --short=7 HEAD)}"
+cat > "$OUT/kustomization.yaml" <<EOF
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+images:
+  - { name: farspawn/tinylink-link, newTag: "${TAG}" }
+  - { name: farspawn/tinylink-analytics, newTag: "${TAG}" }
+  - { name: farspawn/tinylink-redirect, newTag: "${TAG}" }
+  - { name: farspawn/tinylink-console, newTag: "${TAG}" }
+EOF
+
+echo "Wrote $OUT (EIP ${EIP}, RDS ${RDS}, images ${TAG})"
 echo "Short links: http://${EIP}/<code>"
 echo "Console:     http://console.${EIP}.nip.io"
 echo "Grafana:     http://grafana.${EIP}.nip.io"
